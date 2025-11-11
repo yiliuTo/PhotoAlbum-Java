@@ -16,7 +16,7 @@ A photo gallery application built with Spring Boot and Oracle Database, featurin
 
 ## Technology Stack
 
-- **Framework**: Spring Boot 2.7.18 (Java 8)
+- **Framework**: Spring Boot 3.4.1 (Java 21)
 - **Database**: Oracle Database 21c Express Edition
 - **Templating**: Thymeleaf
 - **Build Tool**: Maven
