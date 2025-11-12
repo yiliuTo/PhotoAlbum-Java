@@ -4,18 +4,66 @@ on:
   workflow_dispatch:  # Manual trigger only (click "Run workflow" button in GitHub Actions)
 
 jobs:
-  test-arm64:
-    runs-on: macos-latest  # macOS 14 with Apple Silicon (native ARM64)
+  test-arm64-build:
+    runs-on: ubuntu-latest  # Use Ubuntu with buildx for multi-arch
     
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
       
-      - name: Install Docker on macOS
+      - name: Set up QEMU for ARM64
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Build Java app for ARM64
         run: |
-          brew install docker docker-compose
-          brew install colima
-          colima start --cpu 2 --memory 4
+          docker buildx build --platform linux/arm64 -t photoalbum-java:arm64 --load .
+      
+      - name: Verify ARM64 build
+        run: |
+          docker image inspect photoalbum-java:arm64 --format='{{.Architecture}}'
+      
+      - name: Test Oracle Free image availability for ARM64
+        run: |
+          docker manifest inspect gvenzl/oracle-free:latest | grep -A 5 "arm64"
+  
+  test-arm64-native:
+    runs-on: macos-14  # Native ARM64 (Apple Silicon)
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Install Docker Desktop for Mac
+        run: |
+          # Download and install Docker Desktop
+          curl -o Docker.dmg https://desktop.docker.com/mac/main/arm64/Docker.dmg
+          sudo hdiutil attach Docker.dmg
+          sudo /Volumes/Docker/Docker.app/Contents/MacOS/install --accept-license
+          sudo hdiutil detach /Volumes/Docker
+          
+          # Wait for Docker to start
+          open -a Docker
+          sleep 30
+          
+          # Wait for Docker daemon
+          while ! docker info > /dev/null 2>&1; do
+            echo "Waiting for Docker daemon..."
+            sleep 5
+          done
+          
+          docker version
+      
+      - name: Remove platform specification (auto-detect ARM64)
+        run: |
+          if grep -q "platform:" docker-compose.yml; then
+            sed -i '' '/platform:/d' docker-compose.yml
+          fi
+          cat docker-compose.yml
       
       - name: Start Oracle Database (ARM64)
         run: |
